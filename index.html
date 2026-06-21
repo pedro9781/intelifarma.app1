@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis</title>
+    <style>
+        /* Estilos Originais Mantidos */
+        
+        body {
+            margin: 0;
+            background-color: #041822;
+            background-image: url('fundo7.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            transition: background 0.5s ease;
+            /* Transição suave para a troca de cor */
+        }
+        
+        .face-container {
+            width: 90vw;
+            max-width: 450px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.5s ease;
+        }
+        
+        svg {
+            width: 100%;
+            filter: drop-shadow(0 0 25px #041822);
+        }
+        /* --- NOVA ANIMAÇÃO DE SCANNER --- */
+        
+        .scanning::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: #00f2ff;
+            box-shadow: 0 0 20px #00f2ff;
+            animation: scan 1s infinite alternate;
+            z-index: 10;
+        }
+        
+        @keyframes scan {
+            from {
+                top: 0%;
+            }
+            to {
+                top: 100%;
+            }
+        }
+        
+        #mouth {
+            opacity: 0;
+            transition: opacity 0.1s ease-in-out;
+        }
+        
+        .talking {
+            opacity: 1 !important;
+        }
+        
+        .eye {
+            transform-origin: center;
+            animation: blink 3s infinite;
+        }
+        
+        @keyframes blink {
+            0%,
+            96%,
+            100% {
+                transform: scaleY(1);
+            }
+            97% {
+                transform: scaleY(0.9);
+            }
+        }
+        
+        #imagemResposta {
+            position: absolute;
+            right: -110vw;
+            top: 40%;
+            transform: translateY(-50%);
+            width: 65vw;
+            max-width: 300px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px #3e85cc;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+        }
+        
+        .mostrarImagem {
+            right: -50vw !important;
+            opacity: 1 !important;
+        }
+        
+        #textoResposta {
+            position: absolute;
+            right: -100vw;
+            top: 100%;
+            width: 65vw;
+            max-width: 450px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 15px #4587ba;
+            text-align: center;
+            font-size: 1em;
+            opacity: 0;
+            transition: all 0.5s ease;
+            pointer-events: none;
+            min-height: 40px;
+        }
+        
+        .mostrarTexto {
+            right: -50vw !important;
+            opacity: 1 !important;
+        }
+        
+        .faceParaLado {
+            transform: translateX(-35vw);
+        }
+        
+        #status-chat {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .status-active {
+            opacity: 1 !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="face-container" id="faceBox" onclick="ativarAssistente()">
+        <div id="textoResposta"></div>
+        <img id="imagemResposta" src="" alt="Icone">
+
+        <svg viewBox="0 0 200 200" id="face">
+        <g transform="translate(100,100)">
+            <circle cx="0" cy="0" r="78" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+            <g stroke="#E0E0E0" stroke-width="1" opacity="0.5"> 
+                <ellipse rx="78" ry="20" fill="none"/>
+                <ellipse rx="78" ry="35" fill="none"/>
+                <ellipse rx="78" ry="50" fill="none"/>
+                <ellipse rx="78" ry="65" fill="none"/>
+                <line x1="-78" y1="0" x2="78" y2="0"/>
+            </g>
+            <ellipse id="eyeL" class="eye" cx="-28" cy="-20" rx="10" ry="8" fill="#FFFFFF"/>
+            <ellipse id="eyeR" class="eye" cx="28" cy="-20" rx="10" ry="8" fill="#FFFFFF"/>
+            <g id="mouth" transform="translate(0,35)">
+                <rect x="-25" y="-5" width="50" height="12" rx="6" fill="#FFFFFF"/>
+            </g>
+        </g>
+    </svg>
+    </div>
+
+    <div id="status-chat">Clique na face para falar</div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:3000/chat';
+
+        const icones = {
+            whatsapp: "https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg",
+            youtube: "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg",
+            netflix: "https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg",
+            vscode: "https://upload.wikimedia.org/wikipedia/commons/9/9a/Visual_Studio_Code_1.35_icon.svg",
+            alexa: "https://cdn.techshake.com/imagens/amazon-alexa-echo-5-capa.jpg?class=article-image",
+            spotify: "https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg",
+            tanki: "https://tankionline.com/en/wp-content/uploads/2023/06/tanki_birthday_2023_dsa19g_news_740_EN.png"
+        };
+
+        function bocaFalar(estado) {
+            let boca = document.getElementById("mouth");
+            if (estado === "abrir") boca.classList.add("talking");
+            else boca.classList.remove("talking");
+        }
+
+        function falar(texto) {
+            return new Promise((resolve) => {
+                speechSynthesis.cancel();
+                let fala = new SpeechSynthesisUtterance(texto);
+                fala.lang = "pt-BR";
+                bocaFalar("abrir");
+                fala.onend = () => {
+                    bocaFalar("fechar");
+                    resolve();
+                };
+                fala.onerror = () => {
+                    bocaFalar("fechar");
+                    resolve();
+                };
+                speechSynthesis.speak(fala);
+            });
+        }
+
+        function mostrarRespostaVisual(url, descricao) {
+            const img = document.getElementById("imagemResposta");
+            const texto = document.getElementById("textoResposta");
+            const faceBox = document.getElementById("faceBox");
+            img.src = url;
+            texto.innerHTML = `<strong>Jarvis:</strong> ${descricao}`;
+            faceBox.classList.add("faceParaLado");
+            img.classList.add("mostrarImagem");
+            texto.classList.add("mostrarTexto");
+        }
+
+        async function animarEAbrir(servico, urlSite, msg) {
+            mostrarRespostaVisual(icones[servico], `Iniciando protocolo ${servico}...`);
+            document.getElementById("imagemResposta").classList.add("scanning");
+
+            await falar(msg);
+
+            setTimeout(() => {
+                window.open(urlSite, '_blank');
+                document.getElementById("imagemResposta").classList.remove("scanning");
+                limparTela();
+            }, 2000);
+        }
+
+        function limparTela() {
+            document.getElementById("imagemResposta").classList.remove("mostrarImagem", "scanning");
+            document.getElementById("textoResposta").classList.remove("mostrarTexto");
+            document.getElementById("faceBox").classList.remove("faceParaLado");
+        }
+
+        function setStatus(msg) {
+            const statusDiv = document.getElementById('status-chat');
+            statusDiv.textContent = msg;
+            statusDiv.classList.add('status-active');
+            if (msg === "Pronto") setTimeout(() => statusDiv.classList.remove('status-active'), 2000);
+        }
+
+        // --- Lógica de Comandos Atualizada com Troca de Fundo ---
+        async function processarComando(comando) {
+            console.log("Comando recebido:", comando);
+
+            if (comando.includes('olá') || comando.includes('oi')) {
+                await falar("Olá! Como posso ajudar você hoje?");
+            } else if (comando.includes('que horas são')) {
+                const time = new Date().toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                await falar(`Agora são exatamente ${time}`);
+            }
+            // COMANDO PARA TROCAR O FUNDO
+            else if (comando.includes('trocar fundo') || comando.includes('mudar fundo')) {
+                document.body.style.backgroundImage = "none";
+                document.body.style.backgroundColor = "#0b2a3b"; // Cor tecnológica
+                await falar("Comando aceito. Alterando fundo para modo de cor sólida.");
+            }
+            // COMANDO PARA VOLTAR AO ORIGINAL
+            else if (comando.includes('original') || comando.includes('fundo padrão')) {
+                document.body.style.backgroundImage = "url('fundo7.png')";
+                await falar("Restaurando interface original.");
+            }
+            // Comandos de abertura de sites
+            else if (comando.includes('abrir whatsapp')) {
+                await animarEAbrir('whatsapp', 'https://web.whatsapp.com', "abrindo o WhatsApp.");
+            } else if (comando.includes('abrir code')) {
+                await animarEAbrir('vscode', 'https://vscode.dev', " Abrindo Code.");
+            } else if (comando.includes('abrir youtube')) {
+                await animarEAbrir('youtube', 'https://www.youtube.com', "Abrindo o YouTube.");
+            } else if (comando.includes('abrir alexa')) {
+                await animarEAbrir('alexa', 'https://alexa.amazon.com', "Abrindo Alexa.");
+            } else if (comando.includes('abrir netflix')) {
+                await animarEAbrir('netflix', 'https://www.netflix.com', "Abrindo Netflix.");
+            } else if (comando.includes('abrir spotify')) {
+                await animarEAbrir('spotify', 'https://open.spotify.com', "Abrindo Spotify.");
+            } else if (comando.includes('abrir tanque')) {
+                await animarEAbrir('tanki', 'https://tankionline.com/en/', "Abrindo Tanki Online.");
+            } else if (comando.includes('quem é você')) {
+                await falar("Eu sou o Jarvis, seu assistente virtual inteligente.");
+            } else {
+                // Enviar para o Backend se não for um comando interno
+                mostrarRespostaVisual("https://placehold.co/450x450/3e85cc/ffffff?text=IA", "Consultando base de dados...");
+                try {
+                    const response = await fetch(BACKEND_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: comando
+                        })
+                    });
+                    const data = await response.json();
+                    mostrarRespostaVisual("https://placehold.co/450x450/60a5fa/ffffff?text=JARVIS", data.reply);
+                    await falar(data.reply);
+                } catch (err) {
+                    await falar("Tive um problema ao conectar com o servidor.");
+                }
+            }
+
+            setTimeout(limparTela, 7000);
+        }
+
+        function ativarAssistente() {
+            if (speechSynthesis.speaking) return;
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) return alert("Navegador incompatível.");
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR';
+            recognition.onstart = () => {
+                setStatus("Ouvindo...");
+                limparTela();
+            };
+            recognition.onresult = (e) => processarComando(e.results[0][0].transcript.toLowerCase());
+            recognition.onend = () => setStatus("Pronto");
+            recognition.start();
+        }
+
+        // Sensor de movimento dos olhos
+        document.addEventListener("mousemove", (e) => {
+            const face = document.getElementById("face");
+            const rect = face.getBoundingClientRect();
+            const dx = (e.clientX - (rect.left + rect.width / 2)) / 35;
+            const dy = (e.clientY - (rect.top + rect.height / 2)) / 35;
+            const movX = Math.max(Math.min(dx, 6), -6);
+            const movY = Math.max(Math.min(dy, 6), -6);
+            document.getElementById("eyeL").setAttribute("cx", -28 + movX);
+            document.getElementById("eyeL").setAttribute("cy", -20 + movY);
+            document.getElementById("eyeR").setAttribute("cx", 28 + movX);
+            document.getElementById("eyeR").setAttribute("cy", -20 + movY);
+        });
+    </script>
+</body>
+
+</html>
